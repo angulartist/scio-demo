@@ -18,13 +18,16 @@ import org.joda.time.Duration
 import scala.concurrent.Future
 
 object Main {
+  // Some vars
   private val OUTPUT_PATH: String = "results"
   private val OUTPUT_SUFFIX: String = ".bo"
   private val FIXED_WINDOW_DURATION: Duration = Duration.standardHours(1)
 
-  def writeToFile(toto: SCollection[(String, Int)]): Future[Tap[String]] =
-    toto.saveAsTextFile(path = OUTPUT_PATH, suffix = OUTPUT_SUFFIX)
+  // Write to text sink
+  def writeToFile(in: SCollection[(String, Int)]): Future[Tap[String]] =
+    in.saveAsTextFile(path = OUTPUT_PATH, suffix = OUTPUT_SUFFIX)
 
+  // Define a fixed-time window
   val defaultFixedWindow: Window[DataEvent] = Window
     .into[DataEvent](FixedWindows.of(FIXED_WINDOW_DURATION))
     .triggering(groupedWithinTrigger)
@@ -32,6 +35,7 @@ object Main {
     .accumulatingFiredPanes()
     .withAllowedLateness(Duration.ZERO)
 
+  // Handle the context
   def main(cmdlineArgs: Array[String]): Unit = {
     val (ctx, _) = ContextAndArgs(cmdlineArgs)
 
@@ -42,10 +46,14 @@ object Main {
       */
     ctx.optionsAs[StreamingOptions].setStreaming(true)
 
+    // Ingest raw string events
+    // INPUT -> SCollection[String]
     val events = ctx
       .textFile("./dataset/mock.txt")
 
-    val prepared = events
+    // Decode, filter and assign the event-time
+    // SCollection[String] -> SCollection[DataEvent]
+    val prepared: SCollection[DataEvent] = events
       .map { e: String =>
         decode[DataEvent](e)
       }
@@ -59,16 +67,23 @@ object Main {
         new time.Instant(e.timestamp)
       }
 
-    val windowed = prepared.applyTransform(defaultFixedWindow)
+    // Assign a fixed-time window
+    // SCollection[DataEvent] -> SCollection[DataEvent]
+    val windowed: SCollection[DataEvent] =
+      prepared.applyTransform(defaultFixedWindow)
 
-    val summedEvents: SCollection[(String, Int)] =
+    // Extract compound key, build key/value pairs and sum within that key
+    // SCollection[(String, Int)] -> SCollection[(String, Int)]
+    val counted: SCollection[(String, Int)] =
       windowed
         .map[(String, Int)] { e: DataEvent =>
           (s"${e.userId}_${e.server}", e.experience)
         }
         .sumByKey
 
-    writeToFile(summedEvents)
+    // Write to sink
+    // SCollection[(String, Int)] -> OUTPUT
+    writeToFile(counted)
 
     ctx.close().waitUntilFinish()
   }
