@@ -1,8 +1,8 @@
 ```sh
-Playing w/ Spotify's Scio
+# Playing w/ Spotify's Scio
 
-Build
+# Build
 $ sbt pack
-Run
+# Run
 $ target/pack/bin/main
 ```
