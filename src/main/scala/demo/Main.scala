@@ -51,26 +51,22 @@ object Main {
     val events = ctx
       .textFile("./dataset/mock.txt")
 
-    // Decode, filter and assign the event-time
+    // Decode, and get right values
     // SCollection[String] -> SCollection[DataEvent]
     val prepared: SCollection[DataEvent] = events
       .map { e: String =>
         decode[DataEvent](e)
       }
-      .filter { e =>
-        e.isRight
-      }
-      .map[DataEvent] { e =>
-        e.right.get
-      }
-      .timestampBy { e: DataEvent =>
-        new time.Instant(e.timestamp)
-      }
+      .collect { case Right(value) => value }
 
-    // Assign a fixed-time window
+    // Assign a fixed-time window and assign the event-time
     // SCollection[DataEvent] -> SCollection[DataEvent]
     val windowed: SCollection[DataEvent] =
-      prepared.applyTransform(defaultFixedWindow)
+      prepared
+        .timestampBy { e: DataEvent =>
+          new time.Instant(e.timestamp)
+        }
+        .applyTransform(defaultFixedWindow)
 
     // Extract compound key, build key/value pairs and sum within that key
     // SCollection[(String, Int)] -> SCollection[(String, Int)]
