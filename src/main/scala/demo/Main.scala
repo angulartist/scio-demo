@@ -14,10 +14,12 @@ import org.apache.beam.sdk.transforms.windowing.{
 }
 import org.joda.time
 import org.joda.time.Duration
+import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
 
 object Main {
+  private val logger = LoggerFactory.getLogger(this.getClass)
   private val FIXED_WINDOW_DURATION: Duration = Duration.standardHours(1)
 
   // Write to text sink
@@ -50,43 +52,46 @@ object Main {
 
   // Handle the context
   def run(options: Options): Unit = {
-    val ctx = ScioContext(options)
+    val sc = ScioContext(options)
 
     // Ingest raw string events
     // INPUT -> SCollection[String]
-    val events = ctx
+    val events = sc
       .textFile(path = options.getInputPath)
 
     // Decode, and get right values
     // SCollection[String] -> SCollection[DataEvent]
     val prepared: SCollection[DataEvent] = events
-      .map[Either[io.circe.Error, DataEvent]] { e: String =>
-        decode[DataEvent](e)
+      .transform("Decode Events") {
+        _.map[Either[io.circe.Error, DataEvent]] { e: String =>
+          decode[DataEvent](e)
+        }.collect { case Right(value) => value }
       }
-      .collect { case Right(value) => value }
 
     // Assign a fixed-time window and assign the event-time
     // SCollection[DataEvent] -> SCollection[DataEvent]
     val windowed: SCollection[DataEvent] =
       prepared
-        .timestampBy { e: DataEvent =>
-          new time.Instant(e.timestamp)
+        .transform("Assign Fixed Window") {
+          _.timestampBy { e: DataEvent =>
+            new time.Instant(e.timestamp)
+          }.applyTransform(defaultFixedWindow)
         }
-        .applyTransform(defaultFixedWindow)
 
     // Extract compound key, build key/value pairs and sum within that key
     // SCollection[(String, Int)] -> SCollection[(String, Int)]
     val counted: SCollection[(String, Int)] =
       windowed
-        .map[(String, Int)] { e: DataEvent =>
-          (s"${e.userId}_${e.server}", e.experience)
+        .transform("Aggregate Sum") {
+          _.map[(String, Int)] { e: DataEvent =>
+            (s"${e.userId}_${e.server}", e.experience)
+          }.sumByKey
         }
-        .sumByKey
 
     // Write to sink
     // SCollection[(String, Int)] -> OUTPUT
     writeToFile(counted, options)
 
-    ctx.close().waitUntilFinish()
+    sc.close().waitUntilFinish()
   }
 }
