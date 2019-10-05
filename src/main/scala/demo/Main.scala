@@ -54,7 +54,7 @@ object Main {
     // Decode, and get right values
     // SCollection[String] -> SCollection[DataEvent]
     val prepared: SCollection[DataEvent] = events
-      .map { e: String =>
+      .map[Either[io.circe.Error, DataEvent]] { e: String =>
         decode[DataEvent](e)
       }
       .collect { case Right(value) => value }
