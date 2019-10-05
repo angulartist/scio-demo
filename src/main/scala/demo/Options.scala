@@ -2,7 +2,7 @@ package demo
 
 import org.apache.beam.sdk.options.{Default, Description}
 
-trait WindowedOptions {
+trait Options {
   @Description("Input file path of the mocked data")
   @Default.String("./dataset/mock.data")
   def getInputPath: String

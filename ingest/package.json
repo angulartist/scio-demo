@@ -1,0 +1,15 @@
+{
+  "name": "ingest",
+  "version": "1.0.0",
+  "main": "websocket_consumer.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@google-cloud/pubsub": "^1.1.0",
+    "ws": "^7.1.2"
+  }
+}
