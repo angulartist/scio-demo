@@ -1,12 +1,12 @@
 package demo
 
-import com.spotify.scio.ContextAndArgs
+import com.spotify.scio.ScioContext
 import com.spotify.scio.io.Tap
 import com.spotify.scio.values.SCollection
 import demo.WindowParams.groupedWithinTrigger
 import io.circe.generic.auto._
 import io.circe.parser.decode
-import org.apache.beam.sdk.options.StreamingOptions
+import org.apache.beam.sdk.options.PipelineOptionsFactory
 import org.apache.beam.sdk.transforms.windowing.{
   FixedWindows,
   TimestampCombiner,
@@ -18,14 +18,15 @@ import org.joda.time.Duration
 import scala.concurrent.Future
 
 object Main {
-  // Some vars
-  private val OUTPUT_PATH: String = "results"
-  private val OUTPUT_SUFFIX: String = ".bo"
   private val FIXED_WINDOW_DURATION: Duration = Duration.standardHours(1)
 
   // Write to text sink
-  def writeToFile(in: SCollection[(String, Int)]): Future[Tap[String]] =
-    in.saveAsTextFile(path = OUTPUT_PATH, suffix = OUTPUT_SUFFIX)
+  def writeToFile(in: SCollection[(String, Int)],
+                  options: Options): Future[Tap[String]] =
+    in.saveAsTextFile(
+      path = options.getOutputPath,
+      suffix = options.getOutputSuffix
+    )
 
   // Define a fixed-time window
   val defaultFixedWindow: Window[DataEvent] = Window
@@ -35,21 +36,26 @@ object Main {
     .accumulatingFiredPanes()
     .withAllowedLateness(Duration.ZERO)
 
-  // Handle the context
   def main(cmdlineArgs: Array[String]): Unit = {
-    val (ctx, _) = ContextAndArgs(cmdlineArgs)
+    PipelineOptionsFactory.register(classOf[Options])
 
-    /**
-      * Set to true if running a streaming pipeline.
-      * This will be automatically set to true if the
-      * pipeline contains an Unbounded PCollection.
-      */
-    ctx.optionsAs[StreamingOptions].setStreaming(true)
+    val options = PipelineOptionsFactory
+      .fromArgs(cmdlineArgs: _*)
+      .withValidation
+      .as(classOf[Options])
+    options.setStreaming(true)
+
+    run(options)
+  }
+
+  // Handle the context
+  def run(options: Options): Unit = {
+    val ctx = ScioContext(options)
 
     // Ingest raw string events
     // INPUT -> SCollection[String]
     val events = ctx
-      .textFile("./dataset/mock.txt")
+      .textFile(path = options.getInputPath)
 
     // Decode, and get right values
     // SCollection[String] -> SCollection[DataEvent]
@@ -79,7 +85,7 @@ object Main {
 
     // Write to sink
     // SCollection[(String, Int)] -> OUTPUT
-    writeToFile(counted)
+    writeToFile(counted, options)
 
     ctx.close().waitUntilFinish()
   }

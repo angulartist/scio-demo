@@ -1,10 +1,15 @@
 package demo
 
-import org.apache.beam.sdk.options.{Default, Description}
+import org.apache.beam.sdk.options.{
+  Default,
+  Description,
+  PipelineOptions,
+  StreamingOptions
+}
 
-trait Options {
+trait Options extends PipelineOptions with StreamingOptions {
   @Description("Input file path of the mocked data")
-  @Default.String("./dataset/mock.data")
+  @Default.String("./dataset/mock.txt")
   def getInputPath: String
   def setInputPath(value: String): Unit
 
