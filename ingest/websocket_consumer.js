@@ -1,20 +1,20 @@
 const WebSocket = require('ws')
 const {PubSub} = require('@google-cloud/pubsub')
 const ws = new WebSocket('ws://stream.meetup.com/2/rsvps')
-const pSub = new PubSub({projectId: 'XXX'})
+const pSub = new PubSub({projectId: 'drawndom-app'})
 const topicName = 'demo-scala'
 
 const publisher = pSub
     .topic(topicName, {
         batching: {
-            maxMessages: 20,
+            maxMessages: 1,
             maxMilliseconds: 5000
         }
     })
 
 async function addToBatch(
     dataBuffer,
-    customAttributes
+    customAttributes = {}
 ) {
     try {
         const messageId = await publisher.publish(dataBuffer, customAttributes)
