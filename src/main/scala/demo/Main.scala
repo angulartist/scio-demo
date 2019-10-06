@@ -12,8 +12,7 @@ import org.apache.beam.sdk.transforms.windowing.{
   TimestampCombiner,
   Window
 }
-import org.joda.time
-import org.joda.time.Duration
+import org.joda.time.{Duration, Instant}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
@@ -31,8 +30,8 @@ object Main {
     )
 
   // Define a fixed-time window
-  val defaultFixedWindow: Window[DataEvent] = Window
-    .into[DataEvent](FixedWindows.of(FIXED_WINDOW_DURATION))
+  val defaultFixedWindow: Window[RSVPEvent] = Window
+    .into[RSVPEvent](FixedWindows.of(FIXED_WINDOW_DURATION))
     .triggering(groupedWithinTrigger)
     .withTimestampCombiner(TimestampCombiner.END_OF_WINDOW)
     .accumulatingFiredPanes()
@@ -54,44 +53,32 @@ object Main {
   def run(options: Options): Unit = {
     val sc = ScioContext(options)
 
-    // Ingest raw string events
-    // INPUT -> SCollection[String]
-    val events = sc
-      .textFile(path = options.getInputPath)
+    val events: SCollection[String] =
+      sc.pubsubTopic[String](
+        topic = options.getInputTopic,
+        idAttribute = "eventId",
+        timestampAttribute = "timestamp"
+      )
 
-    // Decode, and get right values
-    // SCollection[String] -> SCollection[DataEvent]
-    val prepared: SCollection[DataEvent] = events
+    val prepared = events
       .transform("Decode Events") {
-        _.map[Either[io.circe.Error, DataEvent]] { e: String =>
-          decode[DataEvent](e)
+        _.map[Either[io.circe.Error, RSVPEvent]] { e: String =>
+          decode[RSVPEvent](e)
         }.collect { case Right(value) => value }
       }
 
-    // Assign a fixed-time window and assign the event-time
-    // SCollection[DataEvent] -> SCollection[DataEvent]
-    val windowed: SCollection[DataEvent] =
+    val windowed: SCollection[RSVPEvent] =
       prepared
         .transform("Assign Fixed Window") {
-          _.timestampBy { e: DataEvent =>
-            new time.Instant(e.timestamp)
-          }.applyTransform(defaultFixedWindow)
+          _.applyTransform(defaultFixedWindow)
         }
 
-    // Extract compound key, build key/value pairs and sum within that key
-    // SCollection[(String, Int)] -> SCollection[(String, Int)]
-    val counted: SCollection[(String, Int)] =
-      windowed
-        .transform("Aggregate Sum") {
-          _.map[(String, Int)] { e: DataEvent =>
-            (s"${e.userId}_${e.server}", e.experience)
-          }.sumByKey
-        }
+    windowed.withTimestamp.withWindow.map {
+      e: ((RSVPEvent, Instant), Nothing) =>
+        logger.info(s"pouet $e")
+    }
 
-    // Write to sink
-    // SCollection[(String, Int)] -> OUTPUT
-    writeToFile(counted, options)
-
-    sc.close().waitUntilFinish()
+    sc.close()
+      .waitUntilFinish()
   }
 }

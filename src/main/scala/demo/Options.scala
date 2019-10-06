@@ -29,4 +29,14 @@ trait Options extends PipelineOptions with StreamingOptions {
   @Default.Integer(1)
   def getNumShards: Integer
   def setNumShards(numShards: Integer): Unit
+
+  @Description("Pub/Sub input topic")
+  @Default.String("projects/drawndom-app/topics/demo-scala")
+  def getInputTopic: String
+  def setInputTopic(value: String): Unit
+
+  @Description("Pub/Sub output topic")
+  @Default.String("projects/drawndom-app/topics/demo-scala-sink")
+  def getOutputTopic: String
+  def setOutputTopic(value: String): Unit
 }

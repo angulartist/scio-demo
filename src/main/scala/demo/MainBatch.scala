@@ -7,18 +7,14 @@ import demo.WindowParams.groupedWithinTrigger
 import io.circe.generic.auto._
 import io.circe.parser.decode
 import org.apache.beam.sdk.options.PipelineOptionsFactory
-import org.apache.beam.sdk.transforms.windowing.{
-  FixedWindows,
-  TimestampCombiner,
-  Window
-}
+import org.apache.beam.sdk.transforms.windowing.{FixedWindows, TimestampCombiner, Window}
 import org.joda.time
 import org.joda.time.Duration
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
 
-object Main {
+object MainBatch {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val FIXED_WINDOW_DURATION: Duration = Duration.standardHours(1)
 
@@ -38,17 +34,17 @@ object Main {
     .accumulatingFiredPanes()
     .withAllowedLateness(Duration.ZERO)
 
-  def main(cmdlineArgs: Array[String]): Unit = {
-    PipelineOptionsFactory.register(classOf[Options])
-
-    val options = PipelineOptionsFactory
-      .fromArgs(cmdlineArgs: _*)
-      .withValidation
-      .as(classOf[Options])
-    options.setStreaming(true)
-
-    run(options)
-  }
+//  def main(cmdlineArgs: Array[String]): Unit = {
+//    PipelineOptionsFactory.register(classOf[Options])
+//
+//    val options = PipelineOptionsFactory
+//      .fromArgs(cmdlineArgs: _*)
+//      .withValidation
+//      .as(classOf[Options])
+//    options.setStreaming(true)
+//
+//    run(options)
+//  }
 
   // Handle the context
   def run(options: Options): Unit = {
