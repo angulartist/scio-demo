@@ -2,7 +2,6 @@ package demo
 
 import com.spotify.scio.ScioContext
 import com.spotify.scio.bigquery._
-import com.spotify.scio.io.ClosedTap
 import com.spotify.scio.values.SCollection
 import demo.WindowParams.groupedWithinTrigger
 import io.circe.generic.auto._
@@ -13,34 +12,30 @@ import org.apache.beam.sdk.transforms.windowing.{
   TimestampCombiner,
   Window
 }
-import org.joda.time.Duration
+import org.joda.time.{Duration, Instant}
 import org.slf4j.LoggerFactory
 
 object Main {
+  // Logger
   private val logger = LoggerFactory.getLogger(this.getClass)
+  // Some vars
   private val FIVE_MINUTES: Int = 5
   private val FIXED_WINDOW_DURATION: Duration =
     Duration.standardMinutes(FIVE_MINUTES)
-
-  @BigQueryType.toTable
-  case class Result(topic_name: String, score: Int)
-
-  // Write to text sink
-  def writeToFile(in: SCollection[(String, Int)],
-                  options: Options): ClosedTap[String] =
-    in.saveAsTextFile(
-      path = options.getOutputPath,
-      suffix = options.getOutputSuffix
-    )
 
   // Define a fixed-time window
   val defaultFixedWindow: Window[RSVPEvent] = Window
     .into[RSVPEvent](FixedWindows.of(FIXED_WINDOW_DURATION))
     .triggering(groupedWithinTrigger)
     .withTimestampCombiner(TimestampCombiner.END_OF_WINDOW)
-    .accumulatingFiredPanes()
+    .discardingFiredPanes()
     .withAllowedLateness(Duration.ZERO)
 
+  // BigQuery models
+  @BigQueryType.toTable
+  case class Result(topic_name: String, score: Int, timestamp: Instant)
+
+  // Main function, used to define the pipeline options
   def main(cmdlineArgs: Array[String]): Unit = {
     PipelineOptionsFactory.register(classOf[Options])
 
@@ -53,11 +48,11 @@ object Main {
     run(options)
   }
 
-  // Handle the context
+  // The actual pipeline
   def run(options: Options): Unit = {
     val sc = ScioContext(options)
 
-    // Ingest Pub/Sub messages
+    // Ingest Pub/Sub messages sent by the consumer
     val events: SCollection[String] =
       sc.pubsubTopic[String](
         topic = options.getInputTopic,
@@ -99,15 +94,19 @@ object Main {
           }.sumByKey
         }
 
-    // Logs
+    // Stream insert into BigQuery
     sumTopics
-      .map[Result] { x: (String, Int) =>
-        Result(x._1, x._2)
+      .transform("Insert into BigQuery") {
+        _.withTimestamp
+          .map[Result] { x: ((String, Int), Instant) =>
+            val (topic_score: (String, Int), timestamp: Instant) = x
+            Result(topic_score._1, topic_score._2, timestamp)
+          }
+          .saveAsTypedBigQuery(
+            tableSpec = options.getBigQueryTrends,
+            createDisposition = CREATE_IF_NEEDED
+          )
       }
-      .saveAsTypedBigQuery(
-        tableSpec = options.getBigQueryTrends,
-        createDisposition = CREATE_IF_NEEDED
-      )
 
     sc.run()
       .waitUntilFinish()
