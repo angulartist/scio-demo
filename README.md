@@ -1,3 +1,9 @@
+## Playing w/ Spotify's Scio
+
+* [X] Ingest [https://www.meetup.com/fr-FR/meetup_api/](https://www.meetup.com/fr-FR/meetup_api/)
+* [X] Streaming processing w/ Apache-Beam X Scio
+* [X] Query trending topics from BigQuery
+
 ```sh
 # Playing w/ Spotify's Scio
 
