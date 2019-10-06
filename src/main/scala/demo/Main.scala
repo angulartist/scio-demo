@@ -1,7 +1,8 @@
 package demo
 
 import com.spotify.scio.ScioContext
-import com.spotify.scio.io.Tap
+import com.spotify.scio.bigquery.BigQueryType
+import com.spotify.scio.io.ClosedTap
 import com.spotify.scio.values.SCollection
 import demo.WindowParams.groupedWithinTrigger
 import io.circe.generic.auto._
@@ -15,17 +16,18 @@ import org.apache.beam.sdk.transforms.windowing.{
 import org.joda.time.Duration
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.Future
-
 object Main {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val FIVE_MINUTES: Int = 5
   private val FIXED_WINDOW_DURATION: Duration =
     Duration.standardMinutes(FIVE_MINUTES)
 
+  @BigQueryType.toTable
+  case class Result(topic: String, score: Int)
+
   // Write to text sink
   def writeToFile(in: SCollection[(String, Int)],
-                  options: Options): Future[Tap[String]] =
+                  options: Options): ClosedTap[String] =
     in.saveAsTextFile(
       path = options.getOutputPath,
       suffix = options.getOutputSuffix
@@ -99,12 +101,11 @@ object Main {
 
     // Logs
     sumTopics
-      .map[(String, Int)] { e: (String, Int) =>
-        logger.info(s"topic $e")
-        e
+      .map[Result] { x: (String, Int) =>
+        Result(x._1, x._2)
       }
 
-    sc.close()
+    sc.run()
       .waitUntilFinish()
   }
 }
