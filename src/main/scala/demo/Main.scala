@@ -1,7 +1,7 @@
 package demo
 
 import com.spotify.scio.ScioContext
-import com.spotify.scio.bigquery.BigQueryType
+import com.spotify.scio.bigquery._
 import com.spotify.scio.io.ClosedTap
 import com.spotify.scio.values.SCollection
 import demo.WindowParams.groupedWithinTrigger
@@ -23,7 +23,7 @@ object Main {
     Duration.standardMinutes(FIVE_MINUTES)
 
   @BigQueryType.toTable
-  case class Result(topic: String, score: Int)
+  case class Result(topic_name: String, score: Int)
 
   // Write to text sink
   def writeToFile(in: SCollection[(String, Int)],
@@ -104,6 +104,10 @@ object Main {
       .map[Result] { x: (String, Int) =>
         Result(x._1, x._2)
       }
+      .saveAsTypedBigQuery(
+        tableSpec = options.getBigQueryTrends,
+        createDisposition = CREATE_IF_NEEDED
+      )
 
     sc.run()
       .waitUntilFinish()

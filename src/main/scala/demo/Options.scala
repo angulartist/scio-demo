@@ -39,4 +39,10 @@ trait Options extends PipelineOptions with StreamingOptions {
   @Default.String("projects/drawndom-app/topics/demo-scala-sink")
   def getOutputTopic: String
   def setOutputTopic(value: String): Unit
+
+  @Description("BigQuery trends schema")
+  @Default.String("drawndom-app:meetups.trends")
+  def getBigQueryTrends: String
+  def setBigQueryTrends(value: String): Unit
+
 }
