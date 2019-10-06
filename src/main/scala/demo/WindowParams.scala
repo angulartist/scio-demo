@@ -9,15 +9,16 @@ import org.apache.beam.sdk.transforms.windowing.{
 import org.joda.time.Duration
 
 object WindowParams {
-  private val MIN_BATCH_ELEMENTS: Int = 10
-  private val MAX_BATCH_WAIT_TIME_IN_MILLIS: Int = 50
+  private val MIN_BATCH_ELEMENTS: Int = 20
+  private val MAX_BATCH_WAIT_TIME_IN_MILLIS: Duration =
+    Duration.standardMinutes(1)
 
   val groupedWithinTrigger: Repeatedly = Repeatedly.forever(
     AfterFirst.of(
       AfterPane.elementCountAtLeast(MIN_BATCH_ELEMENTS),
       AfterProcessingTime
         .pastFirstElementInPane()
-        .plusDelayOf(Duration.millis(MAX_BATCH_WAIT_TIME_IN_MILLIS))
+        .plusDelayOf(MAX_BATCH_WAIT_TIME_IN_MILLIS)
     )
   )
 }

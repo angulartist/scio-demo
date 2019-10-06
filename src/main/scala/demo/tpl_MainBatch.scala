@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
 
-object MainBatch {
+object tpl_MainBatch {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val FIXED_WINDOW_DURATION: Duration = Duration.standardHours(1)
 
