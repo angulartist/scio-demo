@@ -79,7 +79,7 @@ object Main {
     // Extract group topics and flatten them
     val topics: SCollection[Topic] =
       windowed
-        .transform("Assign Fixed Window") {
+        .transform("Extract and flatten topics") {
           _.flatMap { x: RSVPEvent =>
             x.group.group_topics
           }
