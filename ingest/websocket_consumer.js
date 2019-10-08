@@ -37,6 +37,8 @@ ws.on('message', incoming = async (data) => {
 
     const base64str = Buffer.from(JSON.stringify(item), 'utf8')
 
+    console.log(JSON.stringify(item))
+
     const customAttr = {
         event_id: strIt(item['eventId']),
         timestamp: strIt(item['timestamp'])
