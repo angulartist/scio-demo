@@ -81,10 +81,11 @@ object Main {
             val (topic_score: (String, Int), timestamp: Instant) = x
             Result(topic_score._1, topic_score._2, timestamp)
           }
-          .saveAsTypedBigQuery(
-            tableSpec = options.getBigQueryTrends,
-            createDisposition = CREATE_IF_NEEDED
-          )
+          .debug(prefix = "Before Insert")
+//          .saveAsTypedBigQuery(
+//            tableSpec = options.getBigQueryTrends,
+//            createDisposition = CREATE_IF_NEEDED
+//          )
       }
 
     sc.run()
