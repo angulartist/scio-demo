@@ -22,7 +22,7 @@ sbt run
 # (BigQuery) Get top 5 trending topics within the last 5 minutes
 
 SELECT SUM(score) as score, topic_name, timestamp
-FROM `drawndom-app.meetups.trends`
+FROM `project_id.dataset_name.table_name`
 WHERE timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 5 MINUTE)
 GROUP BY timestamp, topic_name
 ORDER BY score DESC 
