@@ -48,9 +48,8 @@ object Main {
     // Processing steps
     events
       .transform("Decode Events") {
-        _.map[Either[io.circe.Error, RSVPEvent]] { x: String =>
-          decode[RSVPEvent](x)
-        }.collect { case Right(value) => value }
+        _.map[Either[io.circe.Error, RSVPEvent]] { decode[RSVPEvent](_) }
+          .collect { case Right(value) => value }
       }
       .transform("Assign Fixed Window") {
         _.withFixedWindows(
@@ -64,11 +63,8 @@ object Main {
         )
       }
       .transform("Filter and Flatten topics") {
-        _.filter { x: RSVPEvent =>
-          x.group.group_topics.nonEmpty
-        }.flatMap { x: RSVPEvent =>
-          x.group.group_topics
-        }
+        _.filter { _.group.group_topics.nonEmpty }
+          .flatMap { _.group.group_topics }
       }
       .transform("Sum topics per key") {
         _.map[(String, Int)] { x: Topic =>

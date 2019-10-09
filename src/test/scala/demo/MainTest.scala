@@ -1,8 +1,10 @@
 package demo
 
 import com.spotify.scio.testing._
-import org.apache.beam.sdk.transforms.windowing.IntervalWindow
+import com.spotify.scio.values.WindowOptions
+import org.apache.beam.sdk.transforms.windowing._
 import org.apache.beam.sdk.values.TimestampedValue
+import org.apache.beam.sdk.values.WindowingStrategy.AccumulationMode
 import org.joda.time.{Duration, Instant}
 
 class MainTest extends PipelineSpec {
@@ -44,7 +46,20 @@ class MainTest extends PipelineSpec {
           )
         }
         .transform("Assign a fixed-time window") {
-          _.withFixedWindows(duration = FIVE_MIN_WINDOW_DURATION)
+          _.withFixedWindows(
+            duration = FIVE_MIN_WINDOW_DURATION,
+            options = WindowOptions(
+              trigger = Repeatedly.forever(
+                AfterFirst.of(
+                  AfterProcessingTime
+                    .pastFirstElementInPane()
+                )
+              ),
+              accumulationMode = AccumulationMode.DISCARDING_FIRED_PANES,
+              allowedLateness = Duration.ZERO,
+              timestampCombiner = TimestampCombiner.END_OF_WINDOW
+            )
+          )
         }
         .transform("Pair Word With One") {
           _.map[(String, Int)] { x: String =>
