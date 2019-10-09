@@ -1,14 +1,12 @@
 package demo
 
 import com.spotify.scio.testing._
-import com.spotify.scio.values.WindowOptions
-import org.apache.beam.sdk.transforms.windowing.{AfterWatermark, IntervalWindow}
+import org.apache.beam.sdk.transforms.windowing.IntervalWindow
 import org.apache.beam.sdk.values.TimestampedValue
-import org.apache.beam.sdk.values.WindowingStrategy.AccumulationMode
 import org.joda.time.{Duration, Instant}
 
 class MainTest extends PipelineSpec {
-  private val WINDOW_DURATION: Duration = Duration.standardMinutes(2)
+  private val FIVE_MIN_WINDOW_DURATION: Duration = Duration.standardMinutes(5)
   private val BASE_TIME: Instant = new Instant(0)
 
   private def sampleEvent(
@@ -21,21 +19,12 @@ class MainTest extends PipelineSpec {
 
   "Main" should "work with on time elements" in {
     val stream = testStreamOf[String]
-      .advanceWatermarkTo(BASE_TIME)
       .addElements(
-        // Sample Event
         sampleEvent(record = "Cat Cat Dog", Duration.standardSeconds(10)),
-        // Sample Event
         sampleEvent(record = "Dog Bird Cat", Duration.standardSeconds(20)),
-        // Empty Line
         sampleEvent(record = "", Duration.standardSeconds(30))
       )
-      // Advance Watermark to the end of the window
-      .advanceWatermarkTo(BASE_TIME.plus(Duration.standardMinutes(3)))
-      .addElements(
-        // After end of the window
-        sampleEvent(record = "Dog", Duration.standardMinutes(4))
-      )
+      .addElements(sampleEvent(record = "Dog", Duration.standardMinutes(6)))
       .advanceWatermarkToInfinity
 
     runWithContext { sc =>
@@ -55,14 +44,7 @@ class MainTest extends PipelineSpec {
           )
         }
         .transform("Assign a fixed-time window") {
-          _.withFixedWindows(
-            duration = WINDOW_DURATION,
-            options = WindowOptions(
-              trigger = AfterWatermark.pastEndOfWindow(),
-              accumulationMode = AccumulationMode.DISCARDING_FIRED_PANES,
-              allowedLateness = Duration.standardMinutes(2)
-            )
-          )
+          _.withFixedWindows(duration = FIVE_MIN_WINDOW_DURATION)
         }
         .transform("Pair Word With One") {
           _.map[(String, Int)] { x: String =>
@@ -70,10 +52,28 @@ class MainTest extends PipelineSpec {
           }.sumByKey
         }
 
-      pipeline should inFinalPane(
-        new IntervalWindow(BASE_TIME, WINDOW_DURATION)
+      // Debugging
+      pipeline.withWindow.debug(prefix = "Stream")
+
+      // Test first 5 min fixed window contains in any order
+      pipeline should inWindow(
+        new IntervalWindow(BASE_TIME, FIVE_MIN_WINDOW_DURATION)
       ) {
-        containInAnyOrder(Seq(("Cat", 3), ("Dog", 2), ("Bird", 1)))
+        containInAnyOrder {
+          Seq(("Cat", 3), ("Dog", 2), ("Bird", 1))
+        }
+      }
+
+      // Test second 5 min fixed window contains in any order
+      pipeline should inWindow(
+        new IntervalWindow(
+          new Instant(FIVE_MIN_WINDOW_DURATION.getMillis),
+          FIVE_MIN_WINDOW_DURATION
+        )
+      ) {
+        containInAnyOrder {
+          Seq(("Dog", 1))
+        }
       }
     }
   }
